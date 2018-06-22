@@ -10,24 +10,23 @@
 				// This is where the code will go //
 				//THe Sphere Is 4.45 Units Tall //
 
-				alert("Just reload the page to restart!! ");
-				var canvas = document.getElementById('renderCanvas');
-				var engine = new BABYLON.Engine(canvas, true);
+			var canvas = document.getElementById('renderCanvas');
+			var engine = new BABYLON.Engine(canvas, true);
 
-				var keys = {};
-				window.addEventListener('keydown', function(e){
-					keys[e.key] = true;
-				});
+			var keys = {};
+			window.addEventListener('keydown', function(e){
+				keys[e.key] = true;
+			});
 
-				window.addEventListener('keyup', function(e) {
-					keys[e.key] = false
-				});
+			window.addEventListener('keyup', function(e) {
+				keys[e.key] = false
+			});
 
-				var scene = new BABYLON.Scene(engine);
+			var scene = new BABYLON.Scene(engine);
 
-				var gravityVector = new BABYLON.Vector3(0, -9.81, 0);
-				scene.enablePhysics(gravityVector, new BABYLON.CannonJSPlugin());
-				scene.clearColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+			var gravityVector = new BABYLON.Vector3(0, -9.81, 0);
+			scene.enablePhysics(gravityVector, new BABYLON.CannonJSPlugin());
+			scene.clearColor = new BABYLON.Color3(0.1, 0.1, 0.1);
 
 				//=== Track Code ===//
 
@@ -38,7 +37,6 @@
    END CURVE DATA */				//=== End Track Code===//
 
 				var xFn = function(t) {return 650 * _xFn(t);}
-
 				var zFn = function(t) {return 650 * _yFn(t);}
 
 				var playerSphere = BABYLON.MeshBuilder.CreateSphere("playerSphere", {
@@ -53,6 +51,39 @@
 					mass: 1,
 					restitution: 0.9
 				}, scene);
+
+				BABYLON.SceneLoader.ImportMesh(null, "resources/", "speed.obj", scene, function(meshes) {
+					var boostMesh = meshes[0], boosts = [];
+					boostMesh.material = new BABYLON.StandardMaterial("boostMaterial", scene);
+					boostMesh.material.diffuseColor = new BABYLON.Color3(1, 1, 0);
+					boostMesh.scaling = new BABYLON.Vector3(5, 5, 5);
+					boostMesh.setEnabled(false);
+					
+					function boostAt(xFn, zFn, t) {
+						var newBoost = boostMesh.clone('boost');
+						newBoost.position = new BABYLON.Vector3(xFn(t), 3.2, zFn(t));
+						newBoost.rotation.y = -derivAngle(t, xFn, zFn);
+						newBoost.setEnabled(true);
+						boosts.push(newBoost);
+}
+				
+				// Place boosts here
+				boostAt(xFn, zFn, Math.random(0, 1));
+
+				scene.registerAfterRender(function() {
+		          boosts.forEach(function(boost, i){
+		            if(boost.intersectsMesh(playerSphere)){
+		              boost.dispose();
+		              boosts.splice(i,1);
+		              var vel = playerSphere.physicsImpostor.getLinearVelocity();
+		              playerSphere.applyImpulse(vel.normalize().scale(100), playerSphere.getAbsolutePosition());
+		            } else {
+		              boost.rotation.y += 0.01
+		            }
+		          });
+		        });
+
+		      });
 
 
 				var camera = new BABYLON.ArcRotateCamera("Camera", 0, (3 * Math.PI) / 8, 20, playerSphere, scene);
@@ -72,7 +103,8 @@
 
 				rampAt(xFn, zFn, 0.3, Math.PI / 4, scene);
 
-
+ 				var startTime; 
+    		 var timer = document.querySelector('#timer');
 
 				scene.registerAfterRender(function() {
 					var vel = playerSphere.physicsImpostor.getLinearVelocity();
@@ -88,6 +120,7 @@
 					var right = BABYLON.Vector3.TransformCoordinates(forward, BABYLON.Matrix.RotationY(Math.PI / 2));
 
 					if (keys.w) {
+						 if(!startTime){ startTime = Date.now(); }
 						playerSphere.applyImpulse(forward, playerSphere.getAbsolutePosition());
 					}
 					if (keys.s) {
@@ -101,15 +134,25 @@
 						playerSphere.applyImpulse(right, playerSphere.getAbsolutePosition());
 					}
 
+					var l = false;
+			          if (playerSphere.position.y < -10 && l == false) {
+			            l = true;
+			            lost();
+			          }
+
 					var currentT = tLookup(xFn, zFn, 500, playerSphere.position.x, playerSphere.position.z);
+					var angle = (derivAngle(currentT, xFn, zFn) - (Math.PI));
+         			 camera.alpha += (angle - camera.alpha) / 32;
 
 					if (currentT > 0.99) {
 						win();
 					}
 
-					if (playerSphere.position.y < -10) {
-						lost()
-					}
+					           if(startTime) {
+            timer.innerHTML = ((Date.now() - startTime) / 1000).toFixed(2).replace('.',':');
+
+        }
+
 				});
 
 				function drawPoint(x, z, zrot, scene) {
@@ -173,10 +216,13 @@
 					ramp.rotation.z = angle;
 					ramp.rotation.y = -derivAngle(t, xFn, zFn);
 				}
+				
 
 				
 				engine.runRenderLoop(scene.render.bind(scene));
 				window.addEventListener('resize', engine.resize.bind(engine));
+
+			}
 				function win(){
 					window.location.reload();
 					alert("You Suprise Me ");
@@ -184,6 +230,7 @@
 				function lost(){
 					window.location.reload();
 					alert("You are a Loser");
+				}
 
 
 		</script>
